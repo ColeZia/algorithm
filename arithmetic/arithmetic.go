@@ -108,6 +108,15 @@ func Expression(expression string, list string) string {
 			numStack.push(res)
 			if symbolStack.getPop() == "(" {
 				symbolStack.pop()
+				if symbolStack.getPop() == "-" {
+					symbolStack.pop()
+					symbolStack.push("+")
+					result, err := negativeToPositive(numStack.pop())
+					if err != nil {
+						panic(err)
+					}
+					numStack.push(result)
+				}
 			}
 		}
 	}
@@ -149,11 +158,16 @@ func parseExpression(expression string) ([]string, error) {
 		return nil, errors.New(ExpressionError)
 	}
 	var items []string
+	specialSymbol := ""
 	for i := 0; i < len(runes); {
 		var position int
 		var value string
 		if isNumber(runes[i]) {
 			value, position = readCharters(runes, i, isNumber)
+			if specialSymbol != "" {
+				value = specialSymbol + value
+				specialSymbol = ""
+			}
 		}
 		if unicode.IsLetter(runes[i]) {
 			value, position = readCharters(runes, i, unicode.IsLetter)
@@ -166,6 +180,12 @@ func parseExpression(expression string) ([]string, error) {
 			value = string(runes[i])
 			i += 1
 			position = i
+			if i < len(runes) && isNextNumber(runes[i]) {
+				if value == "-" {
+					specialSymbol = value
+					continue
+				}
+			}
 		}
 		items = append(items, value)
 		i = position
@@ -228,6 +248,16 @@ func calculateExpression(left, right interface{}, symbol string) string {
 	return strconv.FormatFloat(res, 'f', -1, 64)
 }
 
+func negativeToPositive(item string) (string, error) {
+	res, err := strconv.ParseFloat(item, 64)
+	if err != nil {
+		return "", err
+	}
+	res = -res
+	result := strconv.FormatFloat(res, 'f', -1, 64)
+	return result, nil
+}
+
 //当前优先级大于top 继续入栈
 func isPushStack(cur, top string) bool {
 	pCur, pTop := 0, 0
@@ -265,6 +295,10 @@ func isNumberItem(item string) bool {
 //验证括号完整性
 func isSame(s1, s2 int32) bool {
 	return s1 == '(' && s2 == ')'
+}
+
+func isNextNumber(item int32) bool {
+	return unicode.IsDigit(item)
 }
 
 func add(left, right interface{}) float64 {
